@@ -1,7 +1,7 @@
 # springboot-microservices
 Three microservices : employee, department and organizanization, build using Spring Cloud technology and dockerized (based on java-guides). 
 
-Developed with IntelliJ Idea 2022.3.1, Java version 17.0.4
+Developed with IntelliJ Idea 2022.3.1, Java version 17.0.5
 
 First a folder called springboot-microservice was created in workspace.
 Secondly, Employye and Department microservices each were generated with Spring Initializr. Downloaded and unzipt in that folder.
