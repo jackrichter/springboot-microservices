@@ -1,5 +1,7 @@
 package net.javaguides.employeeservice.service.impl;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.AllArgsConstructor;
 import net.javaguides.employeeservice.dto.ApiResponseDto;
 import net.javaguides.employeeservice.dto.DepartmentDto;
@@ -11,6 +13,8 @@ import net.javaguides.employeeservice.repository.EmployeeRepository;
 import net.javaguides.employeeservice.service.ApiFeignClient;
 import net.javaguides.employeeservice.service.EmployeeService;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -21,6 +25,8 @@ import java.util.Optional;
 @Service
 @AllArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmployeeServiceImpl.class);
     private EmployeeRepository employeeRepository;
     private ModelMapper modelMapper;
 
@@ -131,8 +137,11 @@ public class EmployeeServiceImpl implements EmployeeService {
     /**
      * API for usage with Reactive sync/async integration method.
      */
+    //@CircuitBreaker(name = "${spring.application.name}", fallbackMethod = "getDefaultDepartment")
+    @Retry(name = "&{sping.application.name}", fallbackMethod = "getDefaultDepartment")
     public ApiResponseDto getEmployeeById_With_WebClient(Long employeeId) {
 
+        LOGGER.info("inside getEmployeeById_With_WebClient() method");
         // Get the employee
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(
                 () -> new ResourceNotFoundException("Employee", "id", employeeId)
@@ -150,6 +159,29 @@ public class EmployeeServiceImpl implements EmployeeService {
         ApiResponseDto apiResponseDto = new ApiResponseDto();
         apiResponseDto.setEmployee(employeeDto);
         apiResponseDto.setDepartment(departmentDto);
+
+        return apiResponseDto;
+    }
+
+    /**
+     * Fallback Method
+     */
+    public ApiResponseDto getDefaultDepartment(Long employeeId, Exception exception) {
+        Employee employee = employeeRepository.findById(employeeId).get();
+
+        LOGGER.info("inside getDefaultDepartment() method");
+
+        // The default department
+        DepartmentDto departmentDto = new DepartmentDto();
+        departmentDto.setDepartmentName("R&D Department");
+        departmentDto.setDepartmentDescription("Research and Development Department");
+        departmentDto.setDepartmentCode("RD003");
+
+        EmployeeDto employeeDto = modelMapper.map(employee, EmployeeDto.class);
+
+        ApiResponseDto apiResponseDto = new ApiResponseDto();
+        apiResponseDto.setDepartment(departmentDto);
+        apiResponseDto.setEmployee(employeeDto);
 
         return apiResponseDto;
     }

@@ -24,7 +24,8 @@ public class EmployeeController {
 
     @GetMapping("{id}")
     public ResponseEntity<ApiResponseDto> getEmployee(@PathVariable("id") Long employeeId) {
-        ApiResponseDto foundEmployee = employeeService.getEmployeeById(employeeId);
+//        ApiResponseDto foundEmployee = employeeService.getEmployeeById(employeeId);
+        ApiResponseDto foundEmployee = employeeService.getEmployeeById_With_WebClient(employeeId);
         return new ResponseEntity<>(foundEmployee, HttpStatus.OK);
     }
 
