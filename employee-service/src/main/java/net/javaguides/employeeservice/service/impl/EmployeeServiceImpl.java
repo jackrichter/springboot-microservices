@@ -1,11 +1,11 @@
 package net.javaguides.employeeservice.service.impl;
 
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.AllArgsConstructor;
 import net.javaguides.employeeservice.dto.ApiResponseDto;
 import net.javaguides.employeeservice.dto.DepartmentDto;
 import net.javaguides.employeeservice.dto.EmployeeDto;
+import net.javaguides.employeeservice.dto.OrganizationDto;
 import net.javaguides.employeeservice.entity.Employee;
 import net.javaguides.employeeservice.exception.EmailAlreadyExistsException;
 import net.javaguides.employeeservice.exception.ResourceNotFoundException;
@@ -81,8 +81,8 @@ public class EmployeeServiceImpl implements EmployeeService {
      * Here we use the OpenFeign solution as the general way to perform getEmployeeById,
      * returning also Department info for where the employee works.
      *
-     * @param employeeId
-     * @return
+     * @param employeeId The Id of the employee
+     * @return The employee and department
      */
     @Override
     public ApiResponseDto getEmployeeById(Long employeeId) {
@@ -93,6 +93,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         DepartmentDto departmentDto = apiFeignClient.getDepartment(employee.getDepartmentCode());
 
+        // The response object (without Organization)
         ApiResponseDto apiResponseDto = new ApiResponseDto();
         apiResponseDto.setEmployee(employeeDto);
         apiResponseDto.setDepartment(departmentDto);
@@ -126,7 +127,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         ResponseEntity<DepartmentDto> responseEntity = restTemplate.getForEntity("http://localhost:8080/api/departments/" + employee.getDepartmentCode(), DepartmentDto.class);
         DepartmentDto departmentDto = responseEntity.getBody();
 
-        // The response object
+        // The response object (without Organization)
         ApiResponseDto apiResponseDto = new ApiResponseDto();
         apiResponseDto.setEmployee(employeeDto);
         apiResponseDto.setDepartment(departmentDto);
@@ -136,12 +137,14 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     /**
      * API for usage with Reactive sync/async integration method.
+     * We use this method to get the complete chain: Employee, Department and Organization.
      */
     //@CircuitBreaker(name = "${spring.application.name}", fallbackMethod = "getDefaultDepartment")
     @Retry(name = "&{sping.application.name}", fallbackMethod = "getDefaultDepartment")
     public ApiResponseDto getEmployeeById_With_WebClient(Long employeeId) {
 
         LOGGER.info("inside getEmployeeById_With_WebClient() method");
+
         // Get the employee
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(
                 () -> new ResourceNotFoundException("Employee", "id", employeeId)
@@ -155,10 +158,18 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .bodyToMono(DepartmentDto.class)
                 .block();       // synchronous
 
-        // The response object
+        // Get synchronously the Organization this employee works at
+        OrganizationDto organizationDto = webClient.get()
+                .uri("http://localhost:8083/api/organizations/" + employee.getOrganizationCode())
+                .retrieve()
+                .bodyToMono(OrganizationDto.class)
+                .block();
+
+        // The response object including Organization
         ApiResponseDto apiResponseDto = new ApiResponseDto();
         apiResponseDto.setEmployee(employeeDto);
         apiResponseDto.setDepartment(departmentDto);
+        apiResponseDto.setOrganization(organizationDto);
 
         return apiResponseDto;
     }
